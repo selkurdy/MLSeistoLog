@@ -21,6 +21,28 @@ def smooth(a, wlen=11, mode='valid') :
 
 
 
+def logsminmax(logsdf,hideplot=True):
+    allx =all.dropna()
+    allwn = allx.WNAME.unique().tolist()
+    dmin = [allx[allx.WNAME ==wn ]['DEPTH'].min() for wn in allwn]
+    dmax = [allx[allx.WNAME ==wn ]['DEPTH'].max() for wn in allwn]
+    cols1= ['WNAME','DEPTHMIN','DEPTHMAX']
+    allwminmax = pd.DataFrame({'WNAME':allwn,'DEPTHMIN':dmin,'DEPTHMAX':dmax})
+    allwminmax = allwminmax[cols1].copy()
+    xi = [i for i in range(len(allwn)) ]
+    fig,ax = plt.subplots(figsize=(8,6))
+    ax.plot(allwminmax.DEPTHMIN,label='Min Z')
+    ax.plot(allwminmax.DEPTHMAX,label='Max Z')
+    plt.xticks(xi,allwminmax.WNAME,rotation='75')
+    fig.legend()
+    pdfcl = "logsminmax.pdf"
+    if not hideplot:
+        plt.show()
+    fig.savefig(pdfcl)
+    minmaxdf = 'logsminmax.csv'
+    allwminmax.to_csv(minmaxdf,index=False)
+    print(f'Sucessfully generated {minmaxdf}')
+
 
 
 def getcommandline():
@@ -42,9 +64,10 @@ def getcommandline():
     parser.add_argument('--devcols',type=int,nargs=4,default =[0,1,2,3],help='Deviation Survey MD X Y Z columns.default = 0 1 2 3')
     parser.add_argument('--devflipzsign',action='store_true',default=False,help='Deviation survey flip sign of z values.default: leave as is ')
 
-    parser.add_argument('--tdcols',type=int,nargs=2,default=[0,1],help='column #s of time depth pairs.default=0 1 ')
+    parser.add_argument('--tdcols',type=int,nargs=2,default=[0,1],help='column #s of depth time 1W  pairs.default=0 1 ')
     parser.add_argument('--tdheader',type=int,default=1,help='fb file header lines to skip.default=1')
     parser.add_argument('--flipsign',action='store_true',default=False,help='reverse sign of t d picks. default=keep as is')
+    # parser.add_argument('--tmultiplier',type=float,default=1.0,help='Multiplier applied only to time column.default=1.0')
 
     parser.add_argument('--logsmoothwlen',type=int,default=61,help='smooth legs window length. default=61')
     parser.add_argument('--hideplot',action='store_true',default=False,help='Only save to pdf. default =show and save')
@@ -107,8 +130,10 @@ def main():
 
     if cmdl.tdfilename:
         tddf = pd.read_csv(cmdl.tdfilename,usecols = cmdl.tdcols,header=None,skiprows=cmdl.tdheader,delim_whitespace=True)
-        tdcols = ['TIME','DEPTH']
+        tdcols = ['DEPTH','TIME']
         tddf.columns= tdcols
+        tddf['TIME'] = tddf.TIME * 2.0
+        # tddf['TIME'] = tddf.TIME * cmdl.tmultiplier
         print(tddf.head())
         if cmdl.flipsign:
             tddf['TIME'] =tddf.TIME.apply(lambda x : x * (-1.0))
