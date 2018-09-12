@@ -49,11 +49,14 @@ def getcommandline():
     parser = argparse.ArgumentParser(description='Process logs for mlseistolog')
     parser.add_argument('logfilename',help='Las file name')
     parser.add_argument('devfilename',help='deviation file name')
-    parser.add_argument('tdfilename',help='time depth file name')
     parser.add_argument('wellname',help='Well name without spaces')
 
     parser.add_argument('--dtout',type=int,default=2,help='time sampling interval in ms. default= 2')
     parser.add_argument('--logendtime',type=int,default=2500,help='Maximum T2W to output log.default=2500')
+
+    parser.add_argument('--dzout',type=int,default=2,help='depth sampling interval in ms. default= 2')
+    parser.add_argument('--logenddepth',type=int,default=2500,help='Maximum depth to output log.default=3000')
+
     parser.add_argument('--logheader',type=int,default=33,help='header lines of logs file.default=33')
     parser.add_argument('--logcols',type=int,nargs=2,default=[0,1],
         help='columns of log file to read. First col has to be depth.default= 0 1')
@@ -64,12 +67,14 @@ def getcommandline():
     parser.add_argument('--devcols',type=int,nargs=4,default =[0,1,2,3],help='Deviation Survey MD X Y Z columns.default = 0 1 2 3')
     parser.add_argument('--devflipzsign',action='store_true',default=False,help='Deviation survey flip sign of z values.default: leave as is ')
 
+    parser.add_argument('--tdfilename',help='time depth file name')
     parser.add_argument('--tdcols',type=int,nargs=2,default=[0,1],help='column #s of depth time 1W  pairs.default=0 1 ')
     parser.add_argument('--tdheader',type=int,default=1,help='fb file header lines to skip.default=1')
     parser.add_argument('--flipsign',action='store_true',default=False,help='reverse sign of t d picks. default=keep as is')
     # parser.add_argument('--tmultiplier',type=float,default=1.0,help='Multiplier applied only to time column.default=1.0')
 
-    parser.add_argument('--logsmoothwlen',type=int,default=61,help='smooth legs window length. default=61')
+    parser.add_argument('--logsmoothwlen',type=int,default=61,
+        help='smooth logs window length. default=61. freq = Vmax/Lambdamin')
     parser.add_argument('--hideplot',action='store_true',default=False,help='Only save to pdf. default =show and save')
 
 
@@ -141,7 +146,7 @@ def main():
 
         print(tddf.head())
         tout = interpolate.interp1d(tddf['DEPTH'],tddf['TIME'],bounds_error=False,fill_value=np.nan)
-        ti = np.arange(0,cmdl.logendtime,2)
+        ti = np.arange(0,cmdl.logendtime,cmdl.dtout)
         zatt = tout(ti)
         mdx = interpolate.interp1d(devdf.MD.values,devdf.X.values,bounds_error=False,fill_value=np.nan)
         devx_att= mdx(zatt)
@@ -156,13 +161,38 @@ def main():
         logstdfx = logstdfx[logstcols].copy()
         print(logstdfx.head())
 
-
         logsfnamecsv = 'All'+ cmdl.logcolname +'.csv'
         if os.path.isfile(logsfnamecsv):
             logstdfx.to_csv(logsfnamecsv,header=False,index=False,mode='a')
             print('Sucessfully appended {}'.format(logsfnamecsv))
         else:
             logstdfx.to_csv(logsfnamecsv,index=False)
+            print('Sucessfully generated {}'.format(logsfnamecsv))
+
+
+    else: # no depth time pairs, i.e. all wells in depth
+        zi = np.arange(0,cmdl.logenddepth,cmdl.dzout)
+        mdx = interpolate.interp1d(devdf.MD.values,devdf.X.values,bounds_error=False,fill_value=np.nan)
+        devx_atz= mdx(zi)
+        mdy = interpolate.interp1d(devdf.MD.values,devdf.Y.values,bounds_error=False,fill_value=np.nan)
+        devy_atz= mdy(zi)
+
+        logv = interpolate.interp1d(logsdfx['DEPTH'],logsdfx[cmdl.logcolname] ,bounds_error=False,fill_value=np.nan)
+        logv_atz= logv(zi)
+
+        logszcols = ['WELL','DEPTH','DEVX','DEVY',cmdl.logcolname]
+        logszdfx = pd.DataFrame({'WELL':cmdl.wellname,'DEPTH':zi,'DEVX':devx_atz,'DEVY':devy_atz,cmdl.logcolname:logv_atz})
+        logszdfx = logszdfx[logszcols].copy()
+        print(logszdfx.head())
+
+
+
+        logsfnamecsv = 'All'+ cmdl.logcolname +'.csv'
+        if os.path.isfile(logsfnamecsv):
+            logszdfx.to_csv(logsfnamecsv,header=False,index=False,mode='a')
+            print('Sucessfully appended {}'.format(logsfnamecsv))
+        else:
+            logszdfx.to_csv(logsfnamecsv,index=False)
             print('Sucessfully generated {}'.format(logsfnamecsv))
 
 
