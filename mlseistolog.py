@@ -9,7 +9,7 @@ python mlseistolog.py allsegy.txt vclay.csv --startendslice 1000 1020
 python mlseistolog.py allsegy.txt vclay.csv --startendslice 1000 1020 --hideplots
 python mlseistolog.py allsegy.txt vclay.csv --startendslice 1000 2000 --hideplots
 
-
+python mlseistolog.py allsgy.txt allgr.csv
 
 """
 
@@ -339,7 +339,7 @@ def process_seiswellattrib(sa,wa):
     wattribf = wida[ma]
 
     xywf = np.transpose(np.vstack((xwf,ywf)))
-    welldfcols =['WNAME','DEPTH','DEVX','DEVY']
+    welldfcols =['WELL','DEPTH','DEVX','DEVY']
     #wellsin_df = pd.DataFrame([widf,xwf,ywf,wattrib],columns=welldfcols)
     wellsin_df = pd.DataFrame(widf,columns = [welldfcols[0]])
     wellsin_df[welldfcols[1]] = wzf
@@ -361,7 +361,13 @@ def process_seiswellattrib(sa,wa):
     wa_col = wa.columns[4]
     wellsin_df[wa_col] = wattribf
     # print('Inside seiswellattrib ....')
-    # print(wellsin_df.head())
+    # print(wellsin_df.tail())
+    # print('wellsin shape:',  wellsin_df.shape)
+    wellsin_df.dropna(axis=0,inplace=True)
+    # print(wellsin_df.tail())
+    # print('wellsin shape after dropna:',  wellsin_df.shape)
+
+
     return wellsin_df
 
 
@@ -507,12 +513,15 @@ def main():
             # print('After Scaling .....')
             # print(alldatas.head())
             wdfsa = process_seiswellattrib(alldatas,wdf)
-            # print(wdfsa.head())
+            print(wdfsa.tail())
             # lastcol = wdfsa.shape[1]
-            X = wdfsa.iloc[:,4 : -2]
+            X = wdfsa.iloc[:,4 : -1]
             y = wdfsa.iloc[:,-1]
-            Xpred = alldatas.iloc[:,2:-1]
-            print('# of wells used: ', X.shape[0])
+            Xpred = alldatas.iloc[:,2:]
+            # print(f'Xpred: {Xpred.shape}' )
+            # print('# of wells used: ', X.shape[0], y.shape)
+            # print(f'X shape: {X.shape} ')
+            # print(X )
 
             model = CatBoostRegressor(iterations=cmdl.cbriterations, learning_rate= cmdl.cbrlearningrate,
                     depth=cmdl.cbrdepth,loss_function= 'RMSE',random_seed=42,logging_level='Silent')
@@ -531,15 +540,15 @@ def main():
                 wellsdf = wdfsa[wdfsa.columns[:4]].copy()
                 wellsdf[logname] = wdfsa[wdfsa.columns[-1]].copy()
                 wellsdf[lognamepred] = ypred
-                print(wellsdf.head())
-                print(wellsdf.shape)
+                # print(wellsdf.tail())
+                # print(wellsdf.shape)
             else:
                 wellsdf0 = wdfsa[wdfsa.columns[:4]].copy()
                 wellsdf0[logname] = wdfsa[wdfsa.columns[-1]].copy()
                 wellsdf0[lognamepred] = ypred
                 allwellspred = wellsdf.append(wellsdf0)
                 wellsdf = allwellspred[wcols].copy()
-                print(allwellspred.head())
+                print(allwellspred.tail())
                 print(allwellspred.shape)
 
             pred = model.predict(Xpred)

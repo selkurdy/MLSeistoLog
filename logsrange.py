@@ -13,19 +13,19 @@ import matplotlib.pyplot as plt
 
 def logsminmax(logsdf,indepth=False,hideplot=True):
     allx =logsdf.dropna()
-    allwn = allx.WNAME.unique().tolist()
+    allwn = allx.WELL.unique().tolist()
     allxcols = allx.columns.tolist()
-    dmin = [allx[allx.WNAME ==wn ][allxcols[1]].min() for wn in allwn]
-    dmax = [allx[allx.WNAME ==wn ][allxcols[1]].max() for wn in allwn]
+    dmin = [allx[allx.WELL ==wn ][allxcols[1]].min() for wn in allwn]
+    dmax = [allx[allx.WELL ==wn ][allxcols[1]].max() for wn in allwn]
     if not indepth:
-        cols1= ['WNAME','TIMEMIN','TIMEMAX']
-        allwminmax = pd.DataFrame({'WNAME':allwn,'TIMEMIN':dmin,'TIMEMAX':dmax})
+        cols1= ['WELL','TIMEMIN','TIMEMAX']
+        allwminmax = pd.DataFrame({'WELL':allwn,'TIMEMIN':dmin,'TIMEMAX':dmax})
         allwminmax = allwminmax[cols1].copy()
         xi = [i for i in range(len(allwn)) ]
         fig,ax = plt.subplots(figsize=(8,6))
         ax.plot(allwminmax.TIMEMIN,label='Min T')
         ax.plot(allwminmax.TIMEMAX,label='Max T')
-        plt.xticks(xi,allwminmax.WNAME,rotation='75')
+        plt.xticks(xi,allwminmax.WELL,rotation='75')
         fig.legend()
         pdfcl = "logsminmax.pdf"
         if not hideplot:
@@ -38,14 +38,14 @@ def logsminmax(logsdf,indepth=False,hideplot=True):
         tendavg = allwminmax.TIMEMAX.mean()
         print(f'Average Minimum Time: {tstartavg:.2f},  Average Maximum Time: {tendavg:.2f} ')
     else:
-        cols1= ['WNAME','DEPTHMIN','DEPTHMAX']
-        allwminmax = pd.DataFrame({'WNAME':allwn,'DEPTHMIN':dmin,'DEPTHMAX':dmax})
+        cols1= ['WELL','DEPTHMIN','DEPTHMAX']
+        allwminmax = pd.DataFrame({'WELL':allwn,'DEPTHMIN':dmin,'DEPTHMAX':dmax})
         allwminmax = allwminmax[cols1].copy()
         xi = [i for i in range(len(allwn)) ]
         fig,ax = plt.subplots(figsize=(8,6))
         ax.plot(allwminmax.DEPTHMIN,label='Min Z')
         ax.plot(allwminmax.DEPTHMAX,label='Max Z')
-        plt.xticks(xi,allwminmax.WNAME,rotation='75')
+        plt.xticks(xi,allwminmax.WELL,rotation='75')
         fig.legend()
         pdfcl = "logsminmax.pdf"
         if not hideplot:
