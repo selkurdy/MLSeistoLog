@@ -488,6 +488,13 @@ def main():
         sstart = int(cmdl.startendslice[0] // dz)
         send = int(cmdl.startendslice[1] // dz)
         start_process = datetime.now()
+        slicelst   = list()
+        slicenumlst =list()
+        wnlst      = list()
+        slicewnlst = list()
+        coef0lst   = list()
+        coef1lst   = list()
+        r2lst      = list()
         for slicenum in range (sstart, send):
             if cmdl.outdir:
                 outfslice = os.path.join(cmdl.outdir,sfname) +"_slice%d.csv"%slicenum
@@ -498,6 +505,8 @@ def main():
             c = wdf.columns[4] #log name
             nw = wdf[~ wdf[c].isnull() ].count()[4]
             print('# of wells for depth slice {} is {}'.format(zslice,nw))
+
+
             slicefiles = list()
             for i in range(len(sflist)):
                 slicefiles.append(get_slice(sflist[i],slicenum))
@@ -535,6 +544,7 @@ def main():
             print('MSE: %.4f' %(mse))
             r2 = r2_score(y,ypred)
             print('R2 : %10.3f' % r2)
+
             ccmdl = sts.pearsonr(y,ypred)
             if slicenum == sstart:
                 wellsdf = wdfsa[wdfsa.columns[:4]].copy()
@@ -562,6 +572,7 @@ def main():
             xrngmin,xrngmax = y.min(),y.max()
             xvi = np.linspace(xrngmin,xrngmax)
             yvi0 = np.polyval(qc0,xvi)
+
 
             if slicenum % cmdl.plotincrement == 0:
                 slicedepth = slicenum * dz
@@ -597,20 +608,40 @@ def main():
                 print(f'Successfully generated {wsdf}')
 
 
+            slicelst.append(zslice)
+            wnlst.append(nw)
+            slicewnlst.append(wdfsa.shape[0])
+            slicenumlst.append(slicenum)
+            r2lst.append(r2)
+            coef0lst.append(qc0[0])
+            coef1lst.append(qc0[1])
+
         end_process = datetime.now()
         print('Duration of ML model building and prediction : {}'.format(end_process - start_process))
 
+        qccols = ['SLICENUM','SLICEZ','WELLSFOUND','WELLSUSED','COEF0','COEF1','R2']
+        qcdf = pd.DataFrame({'SLICENUM':slicenumlst,'SLICEZ':slicelst,'WELLSFOUND':wnlst,'WELLSUSED':slicewnlst,
+            'COEF0':coef0lst,'COEF1' :coef1lst,'R2':r2lst})
+        qcdf = qcdf[qccols].copy()
 
         if cmdl.outdir:
             outseispred = os.path.join(cmdl.outdir,wfname) +"_slices.csv"
+            outqc = os.path.join(cmdl.outdir,wfname) +"_qc.csv"
         else:
             outseispred = os.path.join(dirsplit,wfname) +"_slices.csv"
+            outqc = os.path.join(dirsplit,wfname) +"_qc.csv"
 
         preddf.to_csv(outseispred,index=False)
         print('Successfully generated {}'.format(outseispred))
         print('DataFrame size: ', preddf.shape)
         endsmpl = preddf.shape[1] - 2
         # print(preddf.head())
+
+        qcdf.to_csv(outqc,index=False)
+        print('Successfully generated {}'.format(outqc))
+
+
+
         with sg.open( outfsegy, "r+" ) as srcp:
             for trnum,tr in enumerate(srcp.trace):
                 trplog = preddf.iloc[trnum,2:].values
