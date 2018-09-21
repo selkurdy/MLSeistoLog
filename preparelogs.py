@@ -1,7 +1,11 @@
 """
 python preparelogs.py "BA DEEP-001.las" "BA DEEP-001.dev" "BA DEEP-001TDR.txt" BA_DEEP-001 --logheader 32 --logcols 0 4 --logcolname GR --devheader 17 --devflipzsign
 
+**new update : input is las file
+python preparelogs.py BA_DEEP-001.las  BA_DEEP-001.dev --logcolname GR --devheader 17
 
+** input is not las, you have to supply logcols and wellname
+python preparelogs.py BA_DEEP-001.las  BA_DEEP-001.dev --logcolname GR --devheader 17 --notlas --logheader 32 --logcols 0 4 --wellname BA_DEEP-001
 """
 
 import  os.path
@@ -11,6 +15,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 from scipy import interpolate
+import lasio
 
 
 def smooth(a, wlen=11, mode='valid') :
@@ -49,19 +54,21 @@ def getcommandline():
     parser = argparse.ArgumentParser(description='Process logs for mlseistolog')
     parser.add_argument('logfilename',help='Las file name')
     parser.add_argument('devfilename',help='deviation file name')
-    parser.add_argument('wellname',help='Well name without spaces')
 
     parser.add_argument('--dtout',type=int,default=2,help='time sampling interval in ms. default= 2')
     parser.add_argument('--logendtime',type=int,default=2500,help='Maximum T2W to output log.default=2500')
 
     parser.add_argument('--dzout',type=int,default=2,help='depth sampling interval in ms. default= 2')
-    parser.add_argument('--logenddepth',type=int,default=2500,help='Maximum depth to output log.default=3000')
+    parser.add_argument('--logenddepth',type=int,default=2500,help='Maximum depth to output log.default=2500')
 
+    parser.add_argument('--notlas',action = 'store_true',default=False,help='Log file is not LAS format.default= las' )
+
+    parser.add_argument('--logcolname',help='log names. single word only. no default')
     parser.add_argument('--logheader',type=int,default=33,help='header lines of logs file.default=33')
     parser.add_argument('--logcols',type=int,nargs=2,default=[0,1],
         help='columns of log file to read. First col has to be depth.default= 0 1')
-    parser.add_argument('--logcolname',help='log names. single word only. no default')
     parser.add_argument('--lognull',type=float,default=-999.25,help='logs null value to remove.default= -999.25')
+    parser.add_argument('--wellname',help='Well name without spaces. Use if not las format')
 
     parser.add_argument('--devheader',type=int,default=15,help='Deviation survey header lines. default=15' )
     parser.add_argument('--devcols',type=int,nargs=4,default =[0,1,2,3],help='Deviation Survey MD X Y Z columns.default = 0 1 2 3')
@@ -89,18 +96,32 @@ def getcommandline():
 def main():
     cmdl = getcommandline()
     if cmdl.logfilename:
-        logsdf = pd.read_csv(cmdl.logfilename,header=None,usecols = cmdl.logcols,skiprows=cmdl.logheader,delim_whitespace=True)
         logcols = ['DEPTH',cmdl.logcolname]
-        # logsdf = pd.DataFrame(data=lgs,columns = logcols)
-        # print(logsdf.describe())
-        logsdf.columns = logcols
-        logsdfx = logsdf.replace(cmdl.lognull,np.nan)
+        if cmdl.notlas:
+            logsdf = pd.read_csv(cmdl.logfilename,header=None,usecols = cmdl.logcols,skiprows=cmdl.logheader,delim_whitespace=True)
+            # logsdf = pd.DataFrame(data=lgs,columns = logcols)
+            # print(logsdf.describe())
+            logsdf.columns = logcols
+            logsdfx = logsdf.replace(cmdl.lognull,np.nan)
+        else:
+            logsfile = lasio.read(cmdl.logfilename)
+            cmdl.wellname = logsfile.well.WELL.value
+            # print(f'well name from las {cmdl.wellname} ')
+            alllogsdf = logsfile.df()
+            # print(alllogsdf.head())
+            print(list(enumerate(alllogsdf.columns)))
+            logsdfx = alllogsdf[logcols[1]].copy()
+            # logsdf[logcols[0]] = alllogsdf.index
+            # logsdf[logcols[1]] = alllogsdf[logcols[1]]
+            logsdfx = logsdfx.reset_index()
+            logsdfx.columns = logcols
+
+        # print(logsdfx.head())
         logsdfx.dropna(inplace=True)
         print(logsdfx.head())
-        print(logsdfx.describe())
+        # print(logsdfx.describe())
         dirsplitlogs,fextsplitlogs= os.path.split(cmdl.logfilename)
         fnamelogs,fextnlogs= os.path.splitext(fextsplitlogs)
-
 
     if cmdl.devfilename:
         devdf = pd.read_csv(cmdl.devfilename,usecols=cmdl.devcols,skiprows=cmdl.devheader,header=None,delim_whitespace=True)
@@ -128,6 +149,7 @@ def main():
             ax.plot(logsdfx[logname],logsdfx['DEPTH'],c='g')
             ax.set_xlabel(cmdl.logcolname)
             ax.set_ylabel('DEPTH')
+            ax.set_title(cmdl.wellname)
             pdfcl = os.path.join(dirsplitlogs,fnamelogs) +"_log.pdf"
             if not cmdl.hideplot:
                 plt.show()
