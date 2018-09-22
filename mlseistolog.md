@@ -89,7 +89,7 @@ optional arguments:
 
 ## SUGGESTED WORKFLOW
 
-*  Run *__mlseistolog.py__* on a small set of slices, e.g. 1500 to 1520 using the option *--slicestartend*. Also use option *--sliceout to create a csv of every slice.  
+*  Run *__mlseistolog.py__* on a small set of slices, e.g. 1500 to 1520 using the option *--slicestartend*. Also use option *--sliceout* to create a csv of every slice.  
 *  Using both csv's, the seismic and the predicted log as input for *__swattriblist.py__* to tune the model parameters  
 *  Run *__mlseistolog.py__* again with option *--slicestartend* to cover the full range required. This time, do not use *--sliceout* option.  
 *  The resulting segy should represent a log with comparable values at every trace. The segy should be standard and imported into the workstation for further evaluation.  
