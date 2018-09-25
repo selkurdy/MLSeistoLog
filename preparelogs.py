@@ -54,6 +54,7 @@ def getcommandline():
     parser = argparse.ArgumentParser(description='Process logs for mlseistolog')
     parser.add_argument('logfilename',help='Las file name')
     parser.add_argument('devfilename',help='deviation file name')
+    parser.add_argument('logcolname',help='log names. single word only. no default')
 
     parser.add_argument('--dtout',type=int,default=2,help='time sampling interval in ms. default= 2')
     parser.add_argument('--logendtime',type=int,default=2500,help='Maximum T2W to output log.default=2500')
@@ -63,7 +64,6 @@ def getcommandline():
 
     parser.add_argument('--notlas',action = 'store_true',default=False,help='Log file is not LAS format.default= las' )
 
-    parser.add_argument('--logcolname',help='log names. single word only. no default')
     parser.add_argument('--logheader',type=int,default=33,help='header lines of logs file.default=33')
     parser.add_argument('--logcols',type=int,nargs=2,default=[0,1],
         help='columns of log file to read. First col has to be depth.default= 0 1')
@@ -77,7 +77,7 @@ def getcommandline():
     parser.add_argument('--tdfilename',help='time depth file name')
     parser.add_argument('--tdcols',type=int,nargs=2,default=[0,1],help='column #s of depth time 1W  pairs.default=0 1 ')
     parser.add_argument('--tdheader',type=int,default=1,help='fb file header lines to skip.default=1')
-    parser.add_argument('--flipsign',action='store_true',default=False,help='reverse sign of t d picks. default=keep as is')
+    parser.add_argument('--flipsign',action='store_true',default=False,help='reverse sign of both d and t1w picks. default=keep as is')
     # parser.add_argument('--tmultiplier',type=float,default=1.0,help='Multiplier applied only to time column.default=1.0')
 
     parser.add_argument('--logsmoothwlen',type=int,default=61,
@@ -165,8 +165,8 @@ def main():
         if cmdl.flipsign:
             tddf['TIME'] =tddf.TIME.apply(lambda x : x * (-1.0))
             tddf['DEPTH']=tddf.DEPTH.apply(lambda x : x * (-1.0))
+            print(tddf.head())
 
-        print(tddf.head())
         tout = interpolate.interp1d(tddf['DEPTH'],tddf['TIME'],bounds_error=False,fill_value=np.nan)
         ti = np.arange(0,cmdl.logendtime,cmdl.dtout)
         zatt = tout(ti)

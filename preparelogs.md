@@ -19,21 +19,22 @@ We then create a batch file of all the logs available and process them to extrac
 python preparelogs.py -h
 usage: preparelogs.py [-h] [--dtout DTOUT] [--logendtime LOGENDTIME]
                       [--dzout DZOUT] [--logenddepth LOGENDDEPTH] [--notlas]
-                      [--logcolname LOGCOLNAME] [--logheader LOGHEADER]
-                      [--logcols LOGCOLS LOGCOLS] [--lognull LOGNULL]
-                      [--wellname WELLNAME] [--devheader DEVHEADER]
+                      [--logheader LOGHEADER] [--logcols LOGCOLS LOGCOLS]
+                      [--lognull LOGNULL] [--wellname WELLNAME]
+                      [--devheader DEVHEADER]
                       [--devcols DEVCOLS DEVCOLS DEVCOLS DEVCOLS]
                       [--devflipzsign] [--tdfilename TDFILENAME]
                       [--tdcols TDCOLS TDCOLS] [--tdheader TDHEADER]
                       [--flipsign] [--logsmoothwlen LOGSMOOTHWLEN]
                       [--hideplot]
-                      logfilename devfilename
+                      logfilename devfilename logcolname
 
 Process logs for mlseistolog
 
 positional arguments:
   logfilename           Las file name
   devfilename           deviation file name
+  logcolname            log names. single word only. no default
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -44,8 +45,6 @@ optional arguments:
   --logenddepth LOGENDDEPTH
                         Maximum depth to output log.default=2500
   --notlas              Log file is not LAS format.default= las
-  --logcolname LOGCOLNAME
-                        log names. single word only. no default
   --logheader LOGHEADER
                         header lines of logs file.default=33
   --logcols LOGCOLS LOGCOLS
@@ -64,47 +63,46 @@ optional arguments:
   --tdcols TDCOLS TDCOLS
                         column #s of depth time 1W pairs.default=0 1
   --tdheader TDHEADER   fb file header lines to skip.default=1
-  --flipsign            reverse sign of t d picks. default=keep as is
+  --flipsign            reverse sign of both d and t1w picks. default=keep as
+                        is
   --logsmoothwlen LOGSMOOTHWLEN
                         smooth logs window length. default=61. freq =
                         Vmax/Lambdamin
-  --hideplot            Only save to pdf. default =show and save
-  
-  
+  --hideplot            Only save to pdf. default =show and save  
   
   ```
-  The program is expecting 2 positional arguments (i.e. must have):
+  The program is expecting 3 positional arguments (i.e. must have):
   *  the log file name: which could be either a flat ASCII file or an LAS format
-  *  the deviation file of the same well
+  *  the deviation file of the same well  
+  *  log column name e.g. GR, exactly as is listed in the log file. That necessitates checking what the code is for that curve in the file  
   
   The optional arguments cover several situations:  
   
-  *  You have to supply the argument *--logcolname*, e.g. GR, exactly as is listed in the log file. That necessitates checking what the code is for that curve in the file.
   *  If the log file is *las* format then that is all what is needed to define the log data
   *  If the log file is just an ASCII flat file then you have to define:
-  >  * *--notlas* flag to signify that log file  is not las. default is las
-  >  *  *--logheader* which is the number of header lines in the file  
-  >  *  *--logcols*  2 values are expected, the first is the depth column # and the second is the desired log column #. Default values are 0 and 1
-  >  *  *--lognull* null values. Default is -999.25 
-  >  *  *--wellname* well name of this file. It should not have any spaces. If it has spaces you have to enclose it in double quotes  
+  >  * ``--notlas`` flag to signify that log file  is not las. default is las
+  >  *  ``--logheader`` which is the number of header lines in the file  
+  >  *  ``--logcols``  2 values are expected, the first is the depth column # and the second is the desired log column #. Default values are 0 and 1
+  >  *  ``--lognull`` null values. Default is -999.25 
+  >  *  ``--wellname`` well name of this file. It should not have any spaces. If it has spaces you have to enclose it in double quotes  
   ---
-  >  *  *--devheader* option to specify the number of header lines in the deviation survey file
-  >  *  *--devcols* deviation survey file column numbers for MD, X, Y, and Z columns
-  >  *  *--devflipzsign* flip sign of deviation z column (Petrel outputs Z in negative)
+  >  *  ``--devheader`` option to specify the number of header lines in the deviation survey file
+  >  *  ``--devcols`` deviation survey file column numbers for MD, X, Y, and Z columns
+  >  *  ``--devflipzsign`` flip sign of deviation z column (Petrel outputs Z in negative)
   ---
-  >  *  *--logsmoothwlen* smoothing window length. the default is 61. The equation to figure it out is maximum Velocity / minimum wave length. This should give the frequencies expected.
+  >  *  ``--logsmoothwlen`` smoothing window length. the default is 61. The equation to figure it out is maximum Velocity / minimum wave length. This should give the frequencies expected.
   ---
-  >  *--hideplot* is a good option to use especially if you are running a batch file because each well will generate a plot of both the original well and the smoothed version superimposed. The user needs to close that plot to continue. Using the hideplot option the plot is only saved as a pdf file.
+  >  ``--hideplot`` is a good option to use especially if you are running a batch file because each well will generate a plot of both the original well and the smoothed version superimposed. The user needs to close that plot to continue. Using the hideplot option the plot is only saved as a pdf file.
   ---
-  >  *--tdfilename* time depth pairs file name. It has to be supplied if you are outputting logs in the time domain.  
-  >  *--tdcols* depth and time columns in the supplied file. default is 0 and 1. Time has to be one way in ms  
+  >  ``--tdfilename`` time depth pairs file name. It has to be supplied if you are outputting logs in the time domain.  
+  >  ``--tdcols`` depth and time columns in the supplied file. default is 0 and 1. Time has to be one way in ms  
   ---
-  >  *--dtout* if outputting logs in the time domain, then specify the vertical increment of the logs in time in ms  
-  >  *--logendtime* deepest level in time in ms for sampling the log. Values beyond the actual log range will be filled vith NAN  
+  >  ``--dtout`` if outputting logs in the time domain, then specify the vertical increment of the logs in time in ms  
+  >  ``--logendtime`` deepest level in time in ms for sampling the log. Values beyond the actual log range will be filled vith NAN  
   ---  
-  >  *--dzout* if outputting logs in the time domain, then specify the vertical increment of the logs in time in ms  
-  >  *--logenddepth* deepest level in depth for sampling the log. Values beyond the actual log range will be filled vith NAN  
-  >  Please note that you either request *--dtout* or *--dzout* , you cannot have both on the command line. The trigger to output to time is by supplying the option *--tdfilename*. If it is not given then the process will output logs in depth.  
+  >  ``--dzout`` if outputting logs in the time domain, then specify the vertical increment of the logs in time in ms  
+  >  ``--logenddepth`` deepest level in depth for sampling the log. Values beyond the actual log range will be filled vith NAN  
+  >  *__Please note that you either request ``--dtout`` or ``--dzout`` , you cannot have both on the command line. The trigger to output to time is by supplying the option ``--tdfilename``. If it is not given then the process will output logs in depth.__*
   
   
   
