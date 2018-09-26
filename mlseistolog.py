@@ -407,6 +407,8 @@ def  getcommandline():
     parser.add_argument('--includexy',action='store_true',default=False,help='include x y coords in model.default= not to')
     parser.add_argument('--slicesout',action='store_true',default=False,
         help='Save individual unscaled slices to csv. default=false, i.e do not save')
+    parser.add_argument('--intime',action='store_true',default=False,
+        help='processing domain. default= True for depth')
     parser.add_argument('--plotincrement',type=int,default=100,
         help='increment for xplotting actual vs predicted. default= every 100th slice ')
     parser.add_argument('--outdir',help='output directory,default= same dir as input')
@@ -501,10 +503,16 @@ def main():
             else:
                 outfslice = os.path.join(dirsplit,sfname) +"_slice%d.csv"%slicenum
             zslice = slicenum *dz
-            wdf = allwells[allwells.DEPTH == zslice]
+            if cmdl.intime:
+                wdf = allwells[allwells.TIME == zslice]
+            else:
+                wdf = allwells[allwells.DEPTH == zslice]
             c = wdf.columns[4] #log name
             nw = wdf[~ wdf[c].isnull() ].count()[4]
-            print('# of wells for depth slice {} is {}'.format(zslice,nw))
+            if cmdl.intime:
+                print('# of wells for time slice {} is {}'.format(zslice,nw))
+            else:
+                print('# of wells for depth slice {} is {}'.format(zslice,nw))
 
 
             slicefiles = list()
@@ -514,8 +522,13 @@ def main():
             slicedf = pd.DataFrame(slicear,columns=scols)
 
             alldata = pd.concat((xydf,slicedf),axis=1)
-            print('Slice#: {} @ Time : {} ms'.format(slicenum,zslice) )
+            if cmdl.intime:
+                print('Slice#: {} @ Time : {} ms'.format(slicenum,zslice) )
+            else:
+                print('Slice#: {} @ Depth : {} ms'.format(slicenum,zslice) )
+
             # print(alldata.head())
+
             if cmdl.slicesout:
                 alldata.to_csv(outfslice,index=False)
             alldatas = process_sscalecols(alldata,includexy=cmdl.includexy)

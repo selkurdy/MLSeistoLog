@@ -20,15 +20,15 @@ Models are built one slice at a time, i.e. all sliced volumes are sliced at the 
 ## COMMAND LINE INTERFACE  
 
 ```
->python mlseistolog.py -h
+python mlseistolog.py -h
 usage: mlseistolog.py [-h] [--segyxhdr SEGYXHDR] [--segyyhdr SEGYYHDR]
                       [--xyscalerhdr XYSCALERHDR]
                       [--startendslice STARTENDSLICE STARTENDSLICE]
                       [--cbriterations CBRITERATIONS]
                       [--cbrlearningrate CBRLEARNINGRATE]
                       [--cbrdepth CBRDEPTH] [--includexy] [--slicesout]
-                      [--plotincrement PLOTINCREMENT] [--outdir OUTDIR]
-                      [--hideplots]
+                      [--intime] [--plotincrement PLOTINCREMENT]
+                      [--outdir OUTDIR] [--hideplots]
                       segyfileslist wellscsv
 
 ML to convert seismic to logs
@@ -54,12 +54,13 @@ optional arguments:
   --includexy           include x y coords in model.default= not to
   --slicesout           Save individual unscaled slices to csv. default=false,
                         i.e do not save
+  --intime              processing domain. default= True for depth
   --plotincrement PLOTINCREMENT
                         increment for xplotting actual vs predicted. default=
                         every 100th slice
   --outdir OUTDIR       output directory,default= same dir as input
-  --hideplots           Only save to pdf. default =show and save
-  ```
+  --hideplots           Only save to pdf. default =show and save   
+```
   
 >  There are 2 positional arguments that have to be supplied:  
 >*  segy files list: this is a simple text file listing all the segy volumes that will be used as attributes  
@@ -67,31 +68,34 @@ optional arguments:
 ---
 
 >  Optional arguments:  
->*  *--segyxhdr* to specify the header byte location for the x coordinate. default is 73  
->*  *--segyyhdr* to specify the header byte location for the y coordinate. default is 77  
+>*  ``--segyxhdr`` to specify the header byte location for the x coordinate. default is 73  
+>*  ``--segyyhdr`` to specify the header byte location for the y coordinate. default is 77  
 ---
->*  *--startendslice* 2 values are expected: the start slice in the vertical units (depth or time in ms) and the end slice. default values are 1000 2000. The resulting segy will have log values only within those limits. Other levels will be zeros.  
+>*  ``--startendslice`` 2 values are expected: the start slice in the vertical units (depth or time in ms) and the end slice. default values are 1000 2000. The resulting segy will have log values only within those limits. Other levels will be zeros.  
 ---  
 >  CatBoostRegression Model parameters:  
->*  *--cbriterations*: ML model parameter. CatBoostRegression # of interations. default = 500  
->*  *--cbrdepth*: ML model parameter. CatBoostRegression depth of trees. default= 2  
->*  *--cbrlearningrate* : ML model parameter. CatBoostRegression learning rate. default = 0.03  
+>*  ``--cbriterations`` : ML model parameter. CatBoostRegression # of interations. default = 500  
+>*  ``--cbrdepth``: ML model parameter. CatBoostRegression depth of trees. default= 2  
+>*  ``--cbrlearningrate`` : ML model parameter. CatBoostRegression learning rate. default = 0.03  
 ---  
->*  *--includexy* : include the x and y coordinates as attributes for the model building. Default is not to include the x y coordinates. By including them we assume that our log prediction is also based on spatial distribution. We can think of that as that of geostatistics without the restriction of variogram and only one co attribute to consider.  
+>*  ``--includexy`` : include the x and y coordinates as attributes for the model building. Default is not to include the x y coordinates. By including them we assume that our log prediction is also based on spatial distribution. We can think of that as that of geostatistics without the restriction of variogram and only one co attribute to consider.  
 ---  
->*  *--sliceout* save every seismic slice out as a csv file. default is false, i.e. do not save those slices. The csv will be extremely large, because it will be the seismic data of all attributes but saved as csv. These slices are the ones used for prediction after the model is built.  
->*  *--plotincrement* : The increment at which a cross plot of actual vs predicted is generated for QC purposes. default is 100, i.e. every 100 slices generate a cross plot and the corresponding slice csv. These could be later used in *__swattriblist.py__* to further hyperparameter tune the model.  
+>*  ``--sliceout`` save every seismic slice out as a csv file. default is false, i.e. do not save those slices. The csv will be extremely large, because it will be the seismic data of all attributes but saved as csv. These slices are the ones used for prediction after the model is built.  
+---  
+>  ``--intime`` : If preparelogs.py was run and output 2 way time and seismic is in time, then use this option. The default is everything in depth.  
+---  
+>*  ``--plotincrement`` : The increment at which a cross plot of actual vs predicted is generated for QC purposes. default is 100, i.e. every 100 slices generate a cross plot and the corresponding slice csv. These could be later used in *__swattriblist.py__* to further hyperparameter tune the model.  
 ---   
->*  *--outdir* to output all these files to a different directory other than the current working dir. Useful when you want to seperate results from input.  
+>*  ``--outdir`` to output all these files to a different directory other than the current working dir. Useful when you want to seperate results from input.  
 >*  *--hideplots* use this option to only output to pdf and not have to click exit for every plot generated.  
 
 
 
 ## SUGGESTED WORKFLOW
 
-*  Run *__mlseistolog.py__* on a small set of slices, e.g. 1500 to 1520 using the option *--slicestartend*. Also use option *--sliceout* to create a csv of every slice.  
+*  Run *__mlseistolog.py__* on a small set of slices, e.g. 1500 to 1520 using the option ``--slicestartend``. Also use option ``--sliceout`` to create a csv of every slice.  
 *  Using both csv's, the seismic and the predicted log as input for *__swattriblist.py__* to tune the model parameters  
-*  Run *__mlseistolog.py__* again with option *--slicestartend* to cover the full range required. This time, do not use *--sliceout* option.  
+*  Run *__mlseistolog.py__* again with option ``--slicestartend`` to cover the full range required. This time, do not use ``--sliceout`` option.  
 *  The resulting segy should represent a log with comparable values at every trace. The segy should be standard and imported into the workstation for further evaluation.  
 
 

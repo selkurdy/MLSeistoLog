@@ -161,13 +161,13 @@ def main():
         tddf.columns= tdcols
         tddf['TIME'] = tddf.TIME * 2.0
         # tddf['TIME'] = tddf.TIME * cmdl.tmultiplier
-        print(tddf.head())
+        # print(tddf.head())
         if cmdl.flipsign:
             tddf['TIME'] =tddf.TIME.apply(lambda x : x * (-1.0))
             tddf['DEPTH']=tddf.DEPTH.apply(lambda x : x * (-1.0))
-            print(tddf.head())
+            print(tddf.describe())
 
-        tout = interpolate.interp1d(tddf['DEPTH'],tddf['TIME'],bounds_error=False,fill_value=np.nan)
+        tout = interpolate.interp1d(tddf['TIME'],tddf['DEPTH'],bounds_error=False,fill_value=np.nan)
         ti = np.arange(0,cmdl.logendtime,cmdl.dtout)
         zatt = tout(ti)
         mdx = interpolate.interp1d(devdf.MD.values,devdf.X.values,bounds_error=False,fill_value=np.nan)

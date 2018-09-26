@@ -26,7 +26,7 @@ def logsminmax(logsdf,indepth=False,hideplot=True):
         ax.plot(allwminmax.TIMEMIN,label='Min T')
         ax.plot(allwminmax.TIMEMAX,label='Max T')
         plt.xticks(xi,allwminmax.WELL,rotation='75')
-        fig.legend()
+        ax.legend()
         pdfcl = "logsminmax.pdf"
         if not hideplot:
             plt.show()
@@ -46,7 +46,7 @@ def logsminmax(logsdf,indepth=False,hideplot=True):
         ax.plot(allwminmax.DEPTHMIN,label='Min Z')
         ax.plot(allwminmax.DEPTHMAX,label='Max Z')
         plt.xticks(xi,allwminmax.WELL,rotation='75')
-        fig.legend()
+        ax.legend()
         pdfcl = "logsminmax.pdf"
         if not hideplot:
             plt.show()
