@@ -315,7 +315,7 @@ def process_sscalecols(seisdf,includexy=False):
     seisdfsxyz = pd.concat([xyz,seisdfsdf],axis=1)
     return seisdfsxyz
 
-def process_seiswellattrib(sa,wa):
+def process_seiswellattrib(sa,wa,intime):
     # print(sa.head())
     # print(wa.head())
     xs = sa.iloc[:,0]
@@ -339,7 +339,11 @@ def process_seiswellattrib(sa,wa):
     wattribf = wida[ma]
 
     xywf = np.transpose(np.vstack((xwf,ywf)))
-    welldfcols =['WELL','DEPTH','DEVX','DEVY']
+    if intime:
+        welldfcols =['WELL','TIME','DEVX','DEVY']
+    else:
+        welldfcols =['WELL','DEPTH','DEVX','DEVY']
+
     #wellsin_df = pd.DataFrame([widf,xwf,ywf,wattrib],columns=welldfcols)
     wellsin_df = pd.DataFrame(widf,columns = [welldfcols[0]])
     wellsin_df[welldfcols[1]] = wzf
@@ -534,7 +538,7 @@ def main():
             alldatas = process_sscalecols(alldata,includexy=cmdl.includexy)
             # print('After Scaling .....')
             # print(alldatas.head())
-            wdfsa = process_seiswellattrib(alldatas,wdf)
+            wdfsa = process_seiswellattrib(alldatas,wdf,cmdl.intime)
             print(wdfsa.tail())
             # lastcol = wdfsa.shape[1]
             X = wdfsa.iloc[:,4 : -1]
