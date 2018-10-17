@@ -33,51 +33,50 @@ from scipy import interpolate
 from sklearn.preprocessing import StandardScaler
 from sklearn import linear_model
 from sklearn.metrics import r2_score, mean_squared_error
+from sklearn import mixture
+from sklearn.preprocessing import MinMaxScaler
 
 try:
     from catboost import CatBoostRegressor
 except ImportError:
     print('***Warning:CatBoost is not installed')
 
-
-
-def pip(x,y,poly):
-   # check if point is a vertex
-   """
-   if (x,y) in poly:
+def pip(x, y, poly):
+    # check if point is a vertex
+    """
+    if (x,y) in poly:
         return True
     """
-   # check if point is on a boundary
-   for i in range(len(poly)):
-      p1 = None
-      p2 = None
-      if i==0:
-         p1 = poly[0]
-         p2 = poly[1]
-      else:
-         p1 = poly[i-1]
-         p2 = poly[i]
-      if p1[1] == p2[1] and p1[1] == y and x > min(p1[0], p2[0]) and x < max(p1[0], p2[0]):
-         return True
+    # check if point is on a boundary
+    for i in range(len(poly)):
+        p1 = None
+        p2 = None
+        if i == 0:
+            p1 = poly[0]
+            p2 = poly[1]
+        else:
+            p1 = poly[i-1]
+            p2 = poly[i]
+        if p1[1] == p2[1] and p1[1] == y and x > min(p1[0], p2[0]) and x < max(p1[0], p2[0]):
+            return True
 
-   n = len(poly)
-   inside = False
+    n = len(poly)
+    inside = False
 
-   p1x,p1y = poly[0]
-   for i in range(n+1):
-      p2x,p2y = poly[i % n]
-      if y > min(p1y,p2y):
-         if y <= max(p1y,p2y):
-            if x <= max(p1x,p2x):
-               if p1y != p2y:
-                  xints = (y-p1y)*(p2x-p1x)/(p2y-p1y)+p1x
-               if p1x == p2x or x <= xints:
-                  inside = not inside
-      p1x,p1y = p2x,p2y
+    p1x,p1y = poly[0]
+    for i in range(n+1):
+        p2x,p2y = poly[i % n]
+        if y > min(p1y,p2y):
+            if y <= max(p1y,p2y):
+                if x <= max(p1x,p2x):
+                    if p1y != p2y:
+                        xints = (y-p1y)*(p2x-p1x)/(p2y-p1y)+p1x
+                    if p1x == p2x or x <= xints:
+                        inside = not inside
+        p1x,p1y = p2x,p2y
 
-   if inside: return True
-   else: return False
-
+    if inside: return True
+    else: return False
 
 #...............................................................................
 class Invdisttree:
@@ -397,6 +396,47 @@ def plotwells(wdf,hideplots=True):
                 fig.show()
             plt.close()
 
+
+def gensamples(datain,targetin,
+    ncomponents=2,
+    nsamples=10,
+    kind='r',
+    func=None):
+    """
+    Generate data using GMM.
+
+    Reads in features array and target column
+    uses GMM to generate samples after scaling target col
+    scales target col back to original values
+    saves data to csv file
+    returns augmented data features array and target col
+
+    newfeatures,newtarget =gensamples(wf,codecol,kind='c',func='cbr')
+    """
+    d0 = datain
+    t0 = targetin
+    d0t0 = np.concatenate((d0,t0.values.reshape(1,-1).T),axis=1)
+    sc = StandardScaler()
+    t0min,t0max = t0.min(),t0.max()
+    t0s = sc.fit_transform(t0.values.reshape(1,-1))
+    d0t0s = np.concatenate((d0,t0s.T),axis=1)
+    gmm = mixture.GaussianMixture(n_components=ncomponents,covariance_type='spherical', max_iter=500, random_state=0)
+    gmm.fit(d0t0s)
+    d0sampled = gmm.sample(nsamples)[0]
+    d1sampled = d0sampled[:,:-1]
+    targetunscaled = d0sampled[:,-1].reshape(1,-1)
+    scmm = MinMaxScaler((t0min,t0max))
+    if kind == 'c':
+        targetscaledback = np.floor(scmm.fit_transform(targetunscaled.T))
+    else:
+        targetscaledback = scmm.fit_transform(targetunscaled.T)
+    d1t1 = np.concatenate((d1sampled,targetscaledback),axis=1)
+    d1 = np.concatenate((d0t0,d1t1))
+    print(d1.shape)
+    fname = 'gensamples_' + func + '.csv'
+    np.savetxt(fname,d1,fmt='%.3f',delimiter=',')
+    return d1[:,:-1],d1[:,-1]
+
 def  getcommandline():
     parser = argparse.ArgumentParser(description='ML to convert seismic to logs')
     parser.add_argument('segyfileslist',help='File that lists all segy files to be used for attributes')
@@ -411,6 +451,9 @@ def  getcommandline():
     parser.add_argument('--includexy',action='store_true',default=False,help='include x y coords in model.default= not to')
     parser.add_argument('--slicesout',action='store_true',default=False,
         help='Save individual unscaled slices to csv. default=false, i.e do not save')
+    parser.add_argument('--generatesamples',action='store_true',default=False,help='Generate Samples.default=False')
+    parser.add_argument('--generatensamples',type=int,default=10,help='# of sample to generate. default= 10')
+    parser.add_argument('--generatencomponents',type=int,default=2,help='# of clusters for GMM.default=2')
     parser.add_argument('--intime',action='store_true',default=False,
         help='processing domain. default= True for depth')
     parser.add_argument('--plotincrement',type=int,default=100,
@@ -543,6 +586,13 @@ def main():
             # lastcol = wdfsa.shape[1]
             X = wdfsa.iloc[:,4 : -1]
             y = wdfsa.iloc[:,-1]
+            inshape = y.size
+            # print( f"size of y: {inshape}")
+            if y.size > 2 and cmdl.generatesamples:
+                X,y = gensamples(X,y,
+                    nsamples=cmdl.generatensamples,
+                    ncomponents=cmdl.generatencomponents,
+                    kind='r',func='cbr')
             Xpred = alldatas.iloc[:,2:]
             # print(f'Xpred: {Xpred.shape}' )
             # print('# of wells used: ', X.shape[0], y.shape)
@@ -566,13 +616,20 @@ def main():
             if slicenum == sstart:
                 wellsdf = wdfsa[wdfsa.columns[:4]].copy()
                 wellsdf[logname] = wdfsa[wdfsa.columns[-1]].copy()
-                wellsdf[lognamepred] = ypred
+                if cmdl.generatesamples:
+                    wellsdf[lognamepred] = ypred[:inshape]
+                else:
+                    wellsdf[lognamepred] = ypred
+
                 # print(wellsdf.tail())
                 # print(wellsdf.shape)
             else:
                 wellsdf0 = wdfsa[wdfsa.columns[:4]].copy()
                 wellsdf0[logname] = wdfsa[wdfsa.columns[-1]].copy()
-                wellsdf0[lognamepred] = ypred
+                if cmdl.generatesamples:
+                    wellsdf0[lognamepred] = ypred[:inshape]
+                else:
+                    wellsdf0[lognamepred] = ypred
                 allwellspred = wellsdf.append(wellsdf0)
                 wellsdf = allwellspred[wcols].copy()
                 print(allwellspred.tail())
@@ -595,7 +652,10 @@ def main():
                 slicedepth = slicenum * dz
                 fig,ax = plt.subplots()
 
-                plt.scatter(y,ypred,alpha=0.5,c='b',label='Model Predicted')
+                plt.scatter(y,ypred,alpha=0.5,c='b',s=15,label='Model Predicted')
+                if cmdl.generatesamples:
+                    ax.scatter(y[inshape:],ypred[inshape:],c='r', marker='X',s=25,label='Generated Samples')
+
                 plt.plot(xvi,yvi0,c='k',lw=2)
 
 
