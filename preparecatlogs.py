@@ -6,6 +6,9 @@ python preparelogs.py BA_DEEP-001.las  BA_DEEP-001.dev --logcolname GR --devhead
 
 ** input is not las, you have to supply logcols and wellname
 python preparelogs.py BA_DEEP-001.las  BA_DEEP-001.dev --logcolname GR --devheader 17 --notlas --logheader 32 --logcols 0 4 --wellname BA_DEEP-001
+python preparecatlogs.py BA-G064.las BA-G064.dev FACIES_GROUP --categorical --logenddepth 3002 --devheader 17
+
+
 """
 
 import  os.path
@@ -154,27 +157,27 @@ def main():
                 ax.set_xlabel(cmdl.logcolname)
                 ax.set_ylabel('DEPTH')
                 ax.set_title(cmdl.wellname)
-                pdfcl = os.path.join(dirsplitlogs,fnamelogs) +"_log.pdf"
+                pdfcl = os.path.join(dirsplitlogs,fnamelogs) + "_log.pdf"
                 if not cmdl.hideplot:
                     plt.show()
                 fig.savefig(pdfcl)
         else:
-            logname = cmdl.logcolname + '_smooth'
+            logname = cmdl.logcolname + '_cat'
             le = preprocessing.LabelEncoder()
-            faciescol=le.fit_transform(logsdfx[cmdl.logcolname])
+            faciescol = le.fit_transform(logsdfx[cmdl.logcolname])
             X = (logsdfx.DEPTH.values).reshape(-1,1)
             y = faciescol
             knnc = KNeighborsClassifier(n_neighbors=cmdl.nneighbors,p=1)
             knnc.fit(X, y)
-            logsdfx[logname]= knnc.predict(X)
-            #print(knnc.predict_proba([[0.9]]))
-            zstart = logsdfx.DEPTH.min()
-            zend = logsdfx.DEPTH.max()
+            logsdfx[logname] = knnc.predict(X)
+            # print(knnc.predict_proba([[0.9]]))
+            zstartcat = logsdfx.DEPTH.min()
+            zendcat = logsdfx.DEPTH.max()
             zi = (np.arange(0,cmdl.logenddepth,cmdl.dzout)).reshape(-1,1)
-            logv_atz= knnc.predict(zi)
+            logv_atz = knnc.predict(zi)
 
-            zlocstart = np.argwhere(zi < zstart)[-1,0]
-            zlocend = np.argwhere(zi > zend)[0,0]
+            zlocstart = np.argwhere(zi < zstartcat)[-1,0]
+            zlocend = np.argwhere(zi > zendcat)[0,0]
             # print(f'{zlocstart}  {zlocend}')
             logv_atz[:zlocstart] = np.nan
             logv_atz[zlocend:] = np.nan
@@ -206,18 +209,16 @@ def main():
                 plt.show()
             fig.savefig(pdfcl)
 
-
-
     if cmdl.tdfilename:
-        tddf = pd.read_csv(cmdl.tdfilename,usecols = cmdl.tdcols,header=None,skiprows=cmdl.tdheader,delim_whitespace=True)
+        tddf = pd.read_csv(cmdl.tdfilename,usecols=cmdl.tdcols,header=None,skiprows=cmdl.tdheader,delim_whitespace=True)
         tdcols = ['DEPTH','TIME']
-        tddf.columns= tdcols
+        tddf.columns = tdcols
         tddf['TIME'] = tddf.TIME * 2.0
         # tddf['TIME'] = tddf.TIME * cmdl.tmultiplier
         # print(tddf.head())
         if cmdl.flipsign:
-            tddf['TIME'] =tddf.TIME.apply(lambda x : x * (-1.0))
-            tddf['DEPTH']=tddf.DEPTH.apply(lambda x : x * (-1.0))
+            tddf['TIME'] = tddf.TIME.apply(lambda x: x * (-1.0))
+            tddf['DEPTH'] = tddf.DEPTH.apply(lambda x: x * (-1.0))
             print(tddf.describe())
 
         tout = interpolate.interp1d(tddf['TIME'],tddf['DEPTH'],bounds_error=False,fill_value=np.nan)
@@ -231,23 +232,23 @@ def main():
             logv = interpolate.interp1d(logsdfx['DEPTH'],logsdfx[cmdl.logcolname] ,bounds_error=False,fill_value=np.nan)
             logv_att= logv(zatt)
         else:
-            zstart = logsdfx.DEPTH.min()
-            zend = logsdfx.DEPTH.max()
+            zstartcat = logsdfx.DEPTH.min()
+            zendcat = logsdfx.DEPTH.max()
             zi = (np.arange(0,cmdl.logenddepth,cmdl.dzout)).reshape(-1,1)
-            logv_att= knnc.predict(zi)
-
-            zlocstart = np.argwhere(zi < zstart)[-1,0]
-            zlocend = np.argwhere(zi > zend)[0,0]
-            print(f'{zlocstart}  {zlocend}')
-            logv_att[:zlocstart] = np.nan
-            logv_att[zlocend:] = np.nan
+            logv_att = knnc.predict(zi).reshape(-1,)
 
         logstcols = ['WELL','TIME','DEVX','DEVY',cmdl.logcolname]
         logstdfx = pd.DataFrame({'WELL':cmdl.wellname,'TIME':ti,'DEVX':devx_att,'DEVY':devy_att,cmdl.logcolname:logv_att})
         logstdfx = logstdfx[logstcols].copy()
         print(logstdfx.head())
+        if cmdl.categorical:
+            print(f'zstartcat: {zstartcat}, zendcat {zendcat}')
+            z0 = np.argwhere(logstdfx['TIME'] < zstartcat)[-1,0]
+            z1 = np.argwhere(logstdfx['TIME'] > zendcat)[0,0]
+            logstdfx.iloc[:z0,4] = np.nan
+            logstdfx.iloc[z1:,4] = np.nan
 
-        logsfnamecsv = 'All'+ cmdl.logcolname +'.csv'
+        logsfnamecsv = 'All' + cmdl.logcolname + '.csv'
         if os.path.isfile(logsfnamecsv):
             logstdfx.to_csv(logsfnamecsv,header=False,index=False,mode='a')
             print('Sucessfully appended {}'.format(logsfnamecsv))
@@ -259,36 +260,31 @@ def main():
     else: # no depth time pairs, i.e. all wells in depth
         zi = np.arange(0,cmdl.logenddepth,cmdl.dzout)
         mdx = interpolate.interp1d(devdf.MD.values,devdf.X.values,bounds_error=False,fill_value=np.nan)
-        devx_atz= mdx(zi)
+        devx_atz = mdx(zi)
         mdy = interpolate.interp1d(devdf.MD.values,devdf.Y.values,bounds_error=False,fill_value=np.nan)
-        devy_atz= mdy(zi)
+        devy_atz = mdy(zi)
 
         if not cmdl.categorical:
-            logv = interpolate.interp1d(logsdfx['DEPTH'],logsdfx[cmdl.logcolname] ,bounds_error=False,fill_value=np.nan)
-            logv_atz= logv(zi)
+            logv = interpolate.interp1d(logsdfx['DEPTH'],logsdfx[cmdl.logcolname],bounds_error=False,fill_value=np.nan)
+            logv_atz = logv(zi)
         else:
-            zstart = logsdfx.DEPTH.min()
-            zend = logsdfx.DEPTH.max()
+            zstartcat = logsdfx.DEPTH.min()
+            zendcat = logsdfx.DEPTH.max()
             zi = (np.arange(0,cmdl.logenddepth,cmdl.dzout)).reshape(-1,1)
-            logv_atz= knnc.predict(zi)
-            zi = zi.flatten()
-            # print(f'+++{logv_atz.shape}  {zi.shape}')
-
-            # zlocstart = np.argwhere(zi < zstart)[-1,0]
-            # zlocend = np.argwhere(zi > zend)[0,0]
-            # # print(f'{zlocstart}  {zlocend}')
-            # logv_atz[:zlocstart] = np.nan
-            # logv_atz[zlocend:] = np.nan
+            logv_atz = knnc.predict(zi)
+            zi = zi.reshape(-1,)
 
         logszcols = ['WELL','DEPTH','DEVX','DEVY',cmdl.logcolname]
         logszdfx = pd.DataFrame({'WELL':cmdl.wellname,'DEPTH':zi,'DEVX':devx_atz,'DEVY':devy_atz,cmdl.logcolname:logv_atz})
+
         logszdfx = logszdfx[logszcols].copy()
-        mask = logszdfx[(logszdfx.DEPTH< zstart) | (logszdfx.DEPTH > zend)] [cmdl.logcolname]
-        logszdfx[cmdl.logcolname] = logszdfx.loc[mask] [cmdl.logcolname] = np.nan
-        # logszdfx[cmdl.logcolname] = logszdfx[(logszdfx[cmdl.logcolname] < zstart) |  (logszdfx[cmdl.logcolname] > zend) ] = np.nan
-        print(logszdfx.head())
-
-
+        print(logszdfx.tail())
+        if cmdl.categorical:
+            print(f'zstartcat: {zstartcat}, zendcat {zendcat}')
+            z0 = np.argwhere(logszdfx['DEPTH'] < zstartcat)[-1,0]
+            z1 = np.argwhere(logszdfx['DEPTH'] > zendcat)[0,0]
+            logszdfx.iloc[:z0,4] = np.nan
+            logszdfx.iloc[z1:,4] = np.nan
 
         logsfnamecsv = 'All'+ cmdl.logcolname +'.csv'
         if os.path.isfile(logsfnamecsv):
@@ -298,18 +294,6 @@ def main():
             logszdfx.to_csv(logsfnamecsv,index=False)
             print('Sucessfully generated {}'.format(logsfnamecsv))
 
-
-
-
-
-
-
-        # logsfnametxt = fnamelogs +'.txt'
-        # logsdfx.to_csv(logsfnamecsv,index=False)
-        # print('Sucessfully generated {}'.format(logsfnamecsv))
-        # logsdfx.to_csv(logsfnametxt,index=False,sep = ' ')
-        # print('Sucessfully generated {}'.format(logsfnametxt))
-        # logsdfxs = MinMaxScalercaler().fit_transform(logsdfx.iloc[:,1:].values)
 
 
 if __name__ == '__main__':
