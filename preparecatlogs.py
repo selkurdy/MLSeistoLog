@@ -122,9 +122,24 @@ def main():
             logsdfx = logsdfx.reset_index()
             logsdfx.columns = logcols
 
-        # print(logsdfx.head())
         logsdfx.dropna(inplace=True)
-        print(logsdfx.head())
+        # print(logsdfx[cmdl.logcolname].unique()
+        if cmdl.categorical:
+            print(logsdfx[cmdl.logcolname].value_counts())
+            if cmdl.tdfilename:
+                zi = (np.arange(0,cmdl.logendtime,cmdl.dzout))
+            else:
+                zi = (np.arange(0,cmdl.logenddepth,cmdl.dzout))
+            zstartcat = logsdfx.DEPTH.min()
+            zendcat = logsdfx.DEPTH.max()
+            zlocstart = np.argwhere(zi < zstartcat)[-1,0]
+            # zlocend = np.argwhere(zi > zendcat)[0,0]
+            if zi[-1] >zendcat:
+                # check if interpolation is deeper than input log
+                zlocend = np.argwhere(zi > zendcat)[0,0]
+                print(f' Log start: {zstartcat} Log start index: {zlocstart} Log end: {zendcat} Log end index: {zlocend}')
+            else:
+                print(f'  Log start: {zstartcat} Log start index: {zlocstart} Log end: {zendcat} Log end is deeper than: {zi[-1]}')
         # print(logsdfx.describe())
         dirsplitlogs,fextsplitlogs= os.path.split(cmdl.logfilename)
         fnamelogs,fextnlogs= os.path.splitext(fextsplitlogs)
@@ -163,6 +178,10 @@ def main():
                 fig.savefig(pdfcl)
         else:
             logname = cmdl.logcolname + '_cat'
+            catlst = logsdfx[cmdl.logcolname].unique()
+            catlst.sort()
+            nullclass = catlst[-1] +1
+            print(f'Null class is {nullclass}')
             le = preprocessing.LabelEncoder()
             faciescol = le.fit_transform(logsdfx[cmdl.logcolname])
             X = (logsdfx.DEPTH.values).reshape(-1,1)
@@ -171,24 +190,19 @@ def main():
             knnc.fit(X, y)
             logsdfx[logname] = knnc.predict(X)
             # print(knnc.predict_proba([[0.9]]))
-            zstartcat = logsdfx.DEPTH.min()
-            zendcat = logsdfx.DEPTH.max()
-            zi = (np.arange(0,cmdl.logenddepth,cmdl.dzout)).reshape(-1,1)
+            zi = zi.reshape(-1,1)
             logv_atz = knnc.predict(zi)
 
-            zlocstart = np.argwhere(zi < zstartcat)[-1,0]
-            zlocend = np.argwhere(zi > zendcat)[0,0]
-            # print(f'{zlocstart}  {zlocend}')
-            logv_atz[:zlocstart] = np.nan
-            logv_atz[zlocend:] = np.nan
+
             # cluster0=np.repeat(np.expand_dims(logsdfx[cmdl.logcolname],1), 60, 1)
             # cluster1=np.repeat(np.expand_dims(logv_atz[zlocstart: zlocend],1), 60, 1)
+
             fig,ax = plt.subplots(1,2,figsize=(6,7))
             ax[0].invert_yaxis()
             ax[1].invert_yaxis()
             # ax[2].invert_yaxis()
             ax[0].step(logsdfx[cmdl.logcolname],logsdfx['DEPTH'])
-            ax[1].step(logv_atz[zlocstart: zlocend],zi[zlocstart : zlocend])
+            ax[1].step(logv_atz[zlocstart:zlocend],zi[zlocstart:zlocend])
 
             # ax[2].imshow(cluster0, interpolation='none', aspect='auto',vmin=0,vmax=4)
             # ax[2].set_xticklabels([])
@@ -232,21 +246,19 @@ def main():
             logv = interpolate.interp1d(logsdfx['DEPTH'],logsdfx[cmdl.logcolname] ,bounds_error=False,fill_value=np.nan)
             logv_att= logv(zatt)
         else:
-            zstartcat = logsdfx.DEPTH.min()
-            zendcat = logsdfx.DEPTH.max()
-            zi = (np.arange(0,cmdl.logenddepth,cmdl.dzout)).reshape(-1,1)
+            # zstartcat = logsdfx.DEPTH.min()
+            # zendcat = logsdfx.DEPTH.max()
+            zi = zi.reshape(-1,1)
             logv_att = knnc.predict(zi).reshape(-1,)
+            if zi[-1] >zendcat:
+                logv_att[zlocend:] = nullclass
+            logv_att[:zlocstart] = nullclass
 
         logstcols = ['WELL','TIME','DEVX','DEVY',cmdl.logcolname]
         logstdfx = pd.DataFrame({'WELL':cmdl.wellname,'TIME':ti,'DEVX':devx_att,'DEVY':devy_att,cmdl.logcolname:logv_att})
+        logstdfx.iloc[:,4].astype('category')
         logstdfx = logstdfx[logstcols].copy()
         print(logstdfx.head())
-        if cmdl.categorical:
-            print(f'zstartcat: {zstartcat}, zendcat {zendcat}')
-            z0 = np.argwhere(logstdfx['TIME'] < zstartcat)[-1,0]
-            z1 = np.argwhere(logstdfx['TIME'] > zendcat)[0,0]
-            logstdfx.iloc[:z0,4] = np.nan
-            logstdfx.iloc[z1:,4] = np.nan
 
         logsfnamecsv = 'All' + cmdl.logcolname + '.csv'
         if os.path.isfile(logsfnamecsv):
@@ -268,23 +280,21 @@ def main():
             logv = interpolate.interp1d(logsdfx['DEPTH'],logsdfx[cmdl.logcolname],bounds_error=False,fill_value=np.nan)
             logv_atz = logv(zi)
         else:
-            zstartcat = logsdfx.DEPTH.min()
-            zendcat = logsdfx.DEPTH.max()
+            # zstartcat = logsdfx.DEPTH.min()
+            # zendcat = logsdfx.DEPTH.max()
             zi = (np.arange(0,cmdl.logenddepth,cmdl.dzout)).reshape(-1,1)
             logv_atz = knnc.predict(zi)
             zi = zi.reshape(-1,)
+            if zi[-1] >zendcat:
+                logv_atz[zlocend:] = nullclass
+            logv_atz[:zlocstart] = nullclass
 
         logszcols = ['WELL','DEPTH','DEVX','DEVY',cmdl.logcolname]
         logszdfx = pd.DataFrame({'WELL':cmdl.wellname,'DEPTH':zi,'DEVX':devx_atz,'DEVY':devy_atz,cmdl.logcolname:logv_atz})
+        logszdfx.iloc[:,4].astype('category')
 
         logszdfx = logszdfx[logszcols].copy()
         print(logszdfx.tail())
-        if cmdl.categorical:
-            print(f'zstartcat: {zstartcat}, zendcat {zendcat}')
-            z0 = np.argwhere(logszdfx['DEPTH'] < zstartcat)[-1,0]
-            z1 = np.argwhere(logszdfx['DEPTH'] > zendcat)[0,0]
-            logszdfx.iloc[:z0,4] = np.nan
-            logszdfx.iloc[z1:,4] = np.nan
 
         logsfnamecsv = 'All'+ cmdl.logcolname +'.csv'
         if os.path.isfile(logsfnamecsv):
