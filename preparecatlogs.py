@@ -11,6 +11,8 @@ python preparecatlogs.py BA-G064.las BA-G064.dev FACIES_GROUP --categorical --lo
 
 """
 
+import sys
+import warnings
 import  os.path
 import argparse
 import numpy as np
@@ -100,6 +102,8 @@ def getcommandline():
 
 
 def main():
+    if not sys.warnoptions:
+        warnings.simplefilter("ignore")
     cmdl = getcommandline()
     if cmdl.logfilename:
         logcols = ['DEPTH',cmdl.logcolname]
@@ -113,6 +117,9 @@ def main():
             logsfile = lasio.read(cmdl.logfilename)
             cmdl.wellname = logsfile.well.WELL.value
             # print(f'well name from las {cmdl.wellname} ')
+            if cmdl.logcolname not in logsfile.curves.keys():
+                print(f'********Curve {cmdl.logcolname} does not exist in file. Will exit')
+                exit()
             alllogsdf = logsfile.df()
             # print(alllogsdf.head())
             print(list(enumerate(alllogsdf.columns)))
@@ -257,6 +264,11 @@ def main():
         logstcols = ['WELL','TIME','DEVX','DEVY',cmdl.logcolname]
         logstdfx = pd.DataFrame({'WELL':cmdl.wellname,'TIME':ti,'DEVX':devx_att,'DEVY':devy_att,cmdl.logcolname:logv_att})
         logstdfx.iloc[:,4].astype('category')
+        # just to get classes as whole integers with no decimals
+
+        logstdfx[cmdl.logcolname][logstdfx[cmdl.logcolname] == nullclass] = np.nan
+        # will replace the extra class with nans but will return classes to decimals!
+
         logstdfx = logstdfx[logstcols].copy()
         print(logstdfx.head())
 
@@ -292,6 +304,10 @@ def main():
         logszcols = ['WELL','DEPTH','DEVX','DEVY',cmdl.logcolname]
         logszdfx = pd.DataFrame({'WELL':cmdl.wellname,'DEPTH':zi,'DEVX':devx_atz,'DEVY':devy_atz,cmdl.logcolname:logv_atz})
         logszdfx.iloc[:,4].astype('category')
+        # just to get classes as whole integers with no decimals
+
+        logszdfx[cmdl.logcolname][logszdfx[cmdl.logcolname] == nullclass] = np.nan
+        # will replace the extra class with nans but will return classes to decimals!
 
         logszdfx = logszdfx[logszcols].copy()
         print(logszdfx.tail())
