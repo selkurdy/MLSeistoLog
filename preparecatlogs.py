@@ -146,6 +146,9 @@ def main():
                 zlocend = np.argwhere(zi > zendcat)[0,0]
                 print(f' Log start: {zstartcat} Log start index: {zlocstart} Log end: {zendcat} Log end index: {zlocend}')
             else:
+                # zlocend = np.where(zi == zi[-1])
+                zlocend = zi.shape[0]
+                print(f'zi shape {zi.shape}')
                 print(f'  Log start: {zstartcat} Log start index: {zlocstart} Log end: {zendcat} Log end is deeper than: {zi[-1]}')
         # print(logsdfx.describe())
         dirsplitlogs,fextsplitlogs= os.path.split(cmdl.logfilename)
