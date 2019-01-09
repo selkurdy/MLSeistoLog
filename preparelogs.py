@@ -6,6 +6,8 @@ python preparelogs.py BA_DEEP-001.las  BA_DEEP-001.dev --logcolname GR --devhead
 
 ** input is not las, you have to supply logcols and wellname
 python preparelogs.py BA_DEEP-001.las  BA_DEEP-001.dev --logcolname GR --devheader 17 --notlas --logheader 32 --logcols 0 4 --wellname BA_DEEP-001
+
+~Replaced np.arange with np.linspace to enable float dtout or dzout
 """
 
 import  os.path
@@ -56,10 +58,10 @@ def getcommandline():
     parser.add_argument('devfilename',help='deviation file name')
     parser.add_argument('logcolname',help='log names. single word only. no default')
 
-    parser.add_argument('--dtout',type=int,default=2,help='time sampling interval in ms. default= 2')
+    parser.add_argument('--dtout',type=float,default=2,help='time sampling interval in ms. default= 2')
     parser.add_argument('--logendtime',type=int,default=2500,help='Maximum T2W to output log.default=2500')
 
-    parser.add_argument('--dzout',type=int,default=2,help='depth sampling interval in ms. default= 2')
+    parser.add_argument('--dzout',type=float,default=2,help='depth sampling interval in ms. default= 2')
     parser.add_argument('--logenddepth',type=int,default=2500,help='Maximum depth to output log.default=2500')
 
     parser.add_argument('--notlas',action = 'store_true',default=False,help='Log file is not LAS format.default= las' )
@@ -168,7 +170,10 @@ def main():
             print(tddf.describe())
 
         tout = interpolate.interp1d(tddf['TIME'],tddf['DEPTH'],bounds_error=False,fill_value=np.nan)
-        ti = np.arange(0,cmdl.logendtime,cmdl.dtout)
+        # ti = np.arange(0,cmdl.logendtime,cmdl.dtout)
+        ns = cmdl.logendtime // cmdl.dtout + 1
+        # ti = np.linspace(0,cmdl.logendtime,ns).astype(int)
+        ti = np.linspace(0,cmdl.logendtime,ns)
         zatt = tout(ti)
         mdx = interpolate.interp1d(devdf.MD.values,devdf.X.values,bounds_error=False,fill_value=np.nan)
         devx_att= mdx(zatt)
@@ -193,7 +198,10 @@ def main():
 
 
     else: # no depth time pairs, i.e. all wells in depth
-        zi = np.arange(0,cmdl.logenddepth,cmdl.dzout)
+        # zi = np.arange(0,cmdl.logenddepth,cmdl.dzout)
+        ns = cmdl.logendtime // cmdl.dzout + 1
+        # zi = np.linspace(0,cmdl.logenddepth,ns).astype(int)
+        zi = np.linspace(0,cmdl.logenddepth,ns)
         mdx = interpolate.interp1d(devdf.MD.values,devdf.X.values,bounds_error=False,fill_value=np.nan)
         devx_atz= mdx(zi)
         mdy = interpolate.interp1d(devdf.MD.values,devdf.Y.values,bounds_error=False,fill_value=np.nan)
